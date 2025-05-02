@@ -14,7 +14,7 @@ namespace Shop.Mail
         public void SendEmail(string address, string subject, string message)
         {
             string email = "trungnpc1@gmail.com";
-            string password = "kuofadpqxbqwxeix";
+            string password = "aokqgklcagmwbmgd";
 
             var loginInfo = new NetworkCredential(email, password);
             var msg = new MailMessage();

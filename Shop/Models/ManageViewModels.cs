@@ -12,6 +12,7 @@ namespace Shop.Models
         public string PhoneNumber { get; set; }
         public bool TwoFactor { get; set; }
         public bool BrowserRemembered { get; set; }
+        public string diachi { get; set; } // Thêm thuộc tính diachi
     }
 
     public class ManageLoginsViewModel

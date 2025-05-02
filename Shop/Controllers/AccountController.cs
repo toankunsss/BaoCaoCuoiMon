@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Globalization;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
@@ -10,16 +8,20 @@ using Microsoft.AspNet.Identity.Owin;
 using Microsoft.Owin.Security;
 using Shop.Models;
 using Shop.Areas.Administrator.Data.message;
+using System.Runtime.Caching;
+using Shop.Mail;
 
 namespace Shop.Controllers
 {
     [Authorize]
     public class AccountController : Controller
     {
+        private static MemoryCache _cache = MemoryCache.Default;
         private ApplicationSignInManager _signInManager;
         private ApplicationUserManager _userManager;
 
-        MyDataDataContext context = new MyDataDataContext(); //
+        MyDataDataContext context = new MyDataDataContext();
+
         public AccountController()
         {
         }
@@ -54,22 +56,23 @@ namespace Shop.Controllers
             }
         }
 
-        //----------------------------Login Admin-----------------------------
+        //----------------------------Đăng nhập Admin-----------------------------
         public bool AuthAdmin(AspNetUser checkUser)
         {
+            if (checkUser == null || string.IsNullOrEmpty(checkUser.UserName))
+                return false;
+
             var user = context.AspNetUsers.FirstOrDefault(u => u.UserName == checkUser.UserName);
             if (user == null)
                 return false;
-            var userExist = user.AspNetUserRoles.FirstOrDefault(r => r.UserId == user.Id);
+
+            var userExist = user.AspNetUserRoles?.FirstOrDefault(r => r.UserId == user.Id);
             if (userExist == null)
                 return false;
-            if (userExist.RoleId != "1")
-                return false;
-            return true;
+
+            return userExist.RoleId == "1";
         }
 
-
-        //
         // GET: /Account/Login
         [AllowAnonymous]
         public ActionResult Login(string returnUrl)
@@ -78,7 +81,6 @@ namespace Shop.Controllers
             return View();
         }
 
-        //
         // POST: /Account/Login
         [HttpPost]
         [AllowAnonymous]
@@ -90,8 +92,6 @@ namespace Shop.Controllers
                 return View(model);
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, change to shouldLockout: true
             var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout: false);
             switch (result)
             {
@@ -100,7 +100,7 @@ namespace Shop.Controllers
                         AspNetUser kh = context.AspNetUsers.Where(p => p.Email == model.Email).FirstOrDefault();
                         if (AuthAdmin(kh) == true)
                         {
-                            Session["taikhoanadmin"] = kh;// gán kh vào session admin
+                            Session["taikhoanadmin"] = kh;
                             Notification.set_flash("Đăng nhập Admin thành công!", "success");
                             return RedirectToAction("Index", "Administrator/MainPage");
                         }
@@ -111,8 +111,8 @@ namespace Shop.Controllers
                                 AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
                                 return View("Lockout");
                             }
-                            Session["TaiKhoan"] = kh;// gán kh vào session
-                            Notification.set_flash("Đăng nhập khách hàng thành công!","success");
+                            Session["TaiKhoan"] = kh;
+                            Notification.set_flash("Đăng nhập khách hàng thành công!", "success");
                             return RedirectToLocal(returnUrl);
                         }
                     }
@@ -122,25 +122,62 @@ namespace Shop.Controllers
                     return RedirectToAction("SendCode", new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
                 case SignInStatus.Failure:
                 default:
-                    ModelState.AddModelError("", "Invalid login attempt.");
+                    ModelState.AddModelError("", "Thông tin đăng nhập không hợp lệ.");
                     return View(model);
             }
         }
 
-        //
+        // GET: /Account/Register
+        [AllowAnonymous]
+        public ActionResult Register()
+        {
+            return View();
+        }
+
+        // POST: /Account/Register
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> Register(RegisterViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser { UserName = model.Email, Email = model.Email, hoten = model.hoten, diachi = model.diachi };
+
+                // Tạo mã xác minh ngẫu nhiên
+                var verificationCode = GenerateVerificationCode();
+                var cacheKey = $"VerificationCode_{model.Email}";
+
+                // Lưu thông tin người dùng và mã xác minh vào bộ nhớ cache (hết hạn sau 10 phút)
+                var cacheItem = new
+                {
+                    User = user,
+                    Password = model.Password,
+                    VerificationCode = verificationCode
+                };
+                _cache.Set(cacheKey, cacheItem, new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(10) });
+
+                // Gửi mã xác minh đến người dùng (qua email)
+                await SendVerificationCode(model.Email, verificationCode);
+
+                Notification.set_flash("Vui lòng kiểm tra email để nhận mã xác thực!", "info");
+                return RedirectToAction("VerifyCode", new { email = model.Email });
+            }
+
+            return View(model);
+        }
+
         // GET: /Account/VerifyCode
         [AllowAnonymous]
-        public async Task<ActionResult> VerifyCode(string provider, string returnUrl, bool rememberMe)
+        public ActionResult VerifyCode(string email)
         {
-            // Require that the user has already logged in via username/password or external login
-            if (!await SignInManager.HasBeenVerifiedAsync())
+            if (string.IsNullOrEmpty(email))
             {
                 return View("Error");
             }
-            return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
+            return View(new VerifyCodeViewModel { Email = email });
         }
 
-        //
         // POST: /Account/VerifyCode
         [HttpPost]
         [AllowAnonymous]
@@ -152,64 +189,72 @@ namespace Shop.Controllers
                 return View(model);
             }
 
-            // The following code protects for brute force attacks against the two factor codes. 
-            // If a user enters incorrect codes for a specified amount of time then the user account 
-            // will be locked out for a specified amount of time. 
-            // You can configure the account lockout settings in IdentityConfig
-            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent: model.RememberMe, rememberBrowser: model.RememberBrowser);
-            switch (result)
+            var cacheKey = $"VerificationCode_{model.Email}";
+            var cachedData = _cache.Get(cacheKey);
+
+            if (cachedData == null)
             {
-                case SignInStatus.Success:
-                    return RedirectToLocal(model.ReturnUrl);
-                case SignInStatus.LockedOut:
-                    return View("Lockout");
-                case SignInStatus.Failure:
-                default:
-                    ModelState.AddModelError("", "Invalid code.");
-                    return View(model);
-            }
-        }
-
-        //
-        // GET: /Account/Register
-        [AllowAnonymous]
-        public ActionResult Register()
-        {
-            return View();
-        }
-
-        //
-        // POST: /Account/Register
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Register(RegisterViewModel model)
-        {
-            if (ModelState.IsValid)
-            {
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email, hoten = model.hoten, diachi = model.diachi };
-                var result = await UserManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
-                {
-                    await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
-
-                    // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
-                    // Send an email with this link
-                    // string code = await UserManager.GenerateEmailConfirmationTokenAsync(user.Id);
-                    // var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);
-                    // await UserManager.SendEmailAsync(user.Id, "Confirm your account", "Please confirm your account by clicking <a href=\"" + callbackUrl + "\">here</a>");
-                    Notification.set_flash("Đăng ký tài khoản khách thành công!", "success");
-                    return RedirectToAction("Index", "Home");
-                }
-                AddErrors(result);
+                ModelState.AddModelError("", "Mã xác thực đã hết hạn hoặc không tồn tại.");
+                return View(model);
             }
 
-            // If we got this far, something failed, redisplay form
+            var cachedItem = (dynamic)cachedData;
+            if (cachedItem.VerificationCode != model.Code)
+            {
+                ModelState.AddModelError("", "Mã xác thực không đúng.");
+                return View(model);
+            }
+
+            // Mã hợp lệ, tiến hành tạo người dùng
+            var user = cachedItem.User as ApplicationUser;
+            var password = cachedItem.Password as string;
+
+            var result = await UserManager.CreateAsync(user, password);
+            if (result.Succeeded)
+            {
+                await SignInManager.SignInAsync(user, isPersistent: false, rememberBrowser: false);
+
+                // Xóa mục bộ nhớ cache sau khi xác minh thành công
+                _cache.Remove(cacheKey);
+
+                Notification.set_flash("Đăng ký tài khoản khách thành công!", "success");
+                return RedirectToAction("Index", "Home");
+            }
+
+            AddErrors(result);
             return View(model);
         }
 
-        //
-        // GET: /Account/ConfirmEmail
+        // Phương thức hỗ trợ để tạo mã xác minh ngẫu nhiên
+        private string GenerateVerificationCode()
+        {
+            var random = new Random();
+            return random.Next(100000, 999999).ToString(); // Mã 6 chữ số
+        }
+
+        // Phương thức hỗ trợ để gửi mã xác minh (triển khai logic gửi email tại đây)
+        private async Task<bool> SendVerificationCode(string email, string code)
+        {
+            try
+            {
+                var mailHelper = new MailHelper();
+                await Task.Run(() =>
+                {
+                    mailHelper.SendEmail(
+                        email,
+                        "Mã xác minh tài khoản",
+                        $"Mã xác minh của bạn là: {code}. Vui lòng nhập mã này để hoàn tất đăng ký."
+                    );
+                });
+                return true; // Gửi thành công
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lỗi gửi email: {ex.Message}");
+                return false; // Gửi thất bại
+            }
+        }
+        // GET: /Account/ConfirmEmail (Tùy chọn, nếu bạn muốn giữ xác nhận email)
         [AllowAnonymous]
         public async Task<ActionResult> ConfirmEmail(string userId, string code)
         {
@@ -221,7 +266,6 @@ namespace Shop.Controllers
             return View(result.Succeeded ? "ConfirmEmail" : "Error");
         }
 
-        //
         // GET: /Account/ForgotPassword
         [AllowAnonymous]
         public ActionResult ForgotPassword()
@@ -229,7 +273,6 @@ namespace Shop.Controllers
             return View();
         }
 
-        //
         // POST: /Account/ForgotPassword
         [HttpPost]
         [AllowAnonymous]
@@ -241,23 +284,12 @@ namespace Shop.Controllers
                 var user = await UserManager.FindByNameAsync(model.Email);
                 if (user == null || !(await UserManager.IsEmailConfirmedAsync(user.Id)))
                 {
-                    // Don't reveal that the user does not exist or is not confirmed
                     return View("ForgotPasswordConfirmation");
                 }
-
-                // For more information on how to enable account confirmation and password reset please visit https://go.microsoft.com/fwlink/?LinkID=320771
-                // Send an email with this link
-                // string code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
-                // var callbackUrl = Url.Action("ResetPassword", "Account", new { userId = user.Id, code = code }, protocol: Request.Url.Scheme);		
-                // await UserManager.SendEmailAsync(user.Id, "Reset Password", "Please reset your password by clicking <a href=\"" + callbackUrl + "\">here</a>");
-                // return RedirectToAction("ForgotPasswordConfirmation", "Account");
             }
-
-            // If we got this far, something failed, redisplay form
             return View(model);
         }
 
-        //
         // GET: /Account/ForgotPasswordConfirmation
         [AllowAnonymous]
         public ActionResult ForgotPasswordConfirmation()
@@ -265,7 +297,13 @@ namespace Shop.Controllers
             return View();
         }
 
-        //
+        // GET: /Account/ResetPassword
+        [AllowAnonymous]
+        public ActionResult Locking()
+        {
+            return View();
+        }
+
         // GET: /Account/ResetPassword
         [AllowAnonymous]
         public ActionResult ResetPassword(string code)
@@ -273,7 +311,6 @@ namespace Shop.Controllers
             return code == null ? View("Error") : View();
         }
 
-        //
         // POST: /Account/ResetPassword
         [HttpPost]
         [AllowAnonymous]
@@ -287,7 +324,6 @@ namespace Shop.Controllers
             var user = await UserManager.FindByNameAsync(model.Email);
             if (user == null)
             {
-                // Don't reveal that the user does not exist
                 return RedirectToAction("ResetPasswordConfirmation", "Account");
             }
             var result = await UserManager.ResetPasswordAsync(user.Id, model.Code, model.Password);
@@ -299,7 +335,6 @@ namespace Shop.Controllers
             return View();
         }
 
-        //
         // GET: /Account/ResetPasswordConfirmation
         [AllowAnonymous]
         public ActionResult ResetPasswordConfirmation()
@@ -307,18 +342,15 @@ namespace Shop.Controllers
             return View();
         }
 
-        //
         // POST: /Account/ExternalLogin
         [HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public ActionResult ExternalLogin(string provider, string returnUrl)
         {
-            // Request a redirect to the external login provider
             return new ChallengeResult(provider, Url.Action("ExternalLoginCallback", "Account", new { ReturnUrl = returnUrl }));
         }
 
-        //
         // GET: /Account/SendCode
         [AllowAnonymous]
         public async Task<ActionResult> SendCode(string returnUrl, bool rememberMe)
@@ -333,7 +365,6 @@ namespace Shop.Controllers
             return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
         }
 
-        //
         // POST: /Account/SendCode
         [HttpPost]
         [AllowAnonymous]
@@ -345,7 +376,6 @@ namespace Shop.Controllers
                 return View();
             }
 
-            // Generate the token and send it
             if (!await SignInManager.SendTwoFactorCodeAsync(model.SelectedProvider))
             {
                 return View("Error");
@@ -353,7 +383,6 @@ namespace Shop.Controllers
             return RedirectToAction("VerifyCode", new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
         }
 
-        //
         // GET: /Account/ExternalLoginCallback
         [AllowAnonymous]
         public async Task<ActionResult> ExternalLoginCallback(string returnUrl)
@@ -364,7 +393,6 @@ namespace Shop.Controllers
                 return RedirectToAction("Login");
             }
 
-            // Sign in the user with this external login provider if the user already has a login
             var result = await SignInManager.ExternalSignInAsync(loginInfo, isPersistent: false);
             switch (result)
             {
@@ -373,7 +401,7 @@ namespace Shop.Controllers
                         var kh = context.AspNetUsers.Where(p => p.Email == loginInfo.Email).FirstOrDefault();
                         if (AuthAdmin(kh) == true)
                         {
-                            Session["taikhoanadmin"] = kh;// gán kh vào session admin
+                            Session["taikhoanadmin"] = kh;
                             Notification.set_flash("Đăng nhập Admin thành công!", "success");
                             return RedirectToAction("Index", "Administrator/MainPage");
                         }
@@ -384,26 +412,23 @@ namespace Shop.Controllers
                                 AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
                                 return View("Lockout");
                             }
-                            Session["TaiKhoan"] = kh;// gán kh vào session
+                            Session["TaiKhoan"] = kh;
                             Notification.set_flash("Đăng nhập khách hàng thành công!", "success");
                             return RedirectToLocal(returnUrl);
-                        }                   
+                        }
                     }
-                //return RedirectToLocal(returnUrl);
                 case SignInStatus.LockedOut:
                     return View("Lockout");
                 case SignInStatus.RequiresVerification:
                     return RedirectToAction("SendCode", new { ReturnUrl = returnUrl, RememberMe = false });
                 case SignInStatus.Failure:
                 default:
-                    // If the user does not have an account, then prompt the user to create an account
                     ViewBag.ReturnUrl = returnUrl;
                     ViewBag.LoginProvider = loginInfo.Login.LoginProvider;
                     return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { Email = loginInfo.Email });
             }
         }
 
-        //
         // POST: /Account/ExternalLoginConfirmation
         [HttpPost]
         [AllowAnonymous]
@@ -417,7 +442,6 @@ namespace Shop.Controllers
 
             if (ModelState.IsValid)
             {
-                // Get the information about the user from the external login provider
                 var info = await AuthenticationManager.GetExternalLoginInfoAsync();
                 if (info == null)
                 {
@@ -441,7 +465,6 @@ namespace Shop.Controllers
             return View(model);
         }
 
-        //
         // POST: /Account/LogOff
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -454,7 +477,6 @@ namespace Shop.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        //
         // GET: /Account/ExternalLoginFailure
         [AllowAnonymous]
         public ActionResult ExternalLoginFailure()
@@ -483,7 +505,6 @@ namespace Shop.Controllers
         }
 
         #region Helpers
-        // Used for XSRF protection when adding external logins
         private const string XsrfKey = "XsrfId";
 
         private IAuthenticationManager AuthenticationManager
@@ -539,6 +560,56 @@ namespace Shop.Controllers
                 context.HttpContext.GetOwinContext().Authentication.Challenge(properties, LoginProvider);
             }
         }
+
+        public async Task<ActionResult> UserProfile()
+        {
+            var user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
+            var model = new IndexViewModel
+            {
+            PhoneNumber = user.PhoneNumber,
+            diachi = user.diachi, // Thêm địa chỉ
+            HasPassword = await UserManager.HasPasswordAsync(user.Id),
+            TwoFactor = await UserManager.GetTwoFactorEnabledAsync(user.Id)
+            };
+            return View(model);
+        }
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> UpdateProfile(IndexViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View("Index", model);
+            }
+
+            var user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
+            if (user == null)
+            {
+                return HttpNotFound();
+            }
+
+            // Cập nhật PhoneNumber và diachi
+            user.PhoneNumber = model.PhoneNumber;
+            user.diachi = model.diachi;
+
+            // Lưu thay đổi vào cơ sở dữ liệu
+            var result = await UserManager.UpdateAsync(user);
+            if (result.Succeeded)
+            {
+                // Hiển thị thông báo thành công
+                TempData["StatusMessage"] = "Cập nhật thông tin thành công!";
+                return RedirectToAction("Index");
+            }
+
+            // Nếu có lỗi, hiển thị lỗi
+            AddErrors(result);
+            return View("Index", model);
+        }
+
+ 
         #endregion
     }
+
 }

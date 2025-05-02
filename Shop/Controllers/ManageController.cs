@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
@@ -64,13 +63,23 @@ namespace Shop.Controllers
                 : "";
 
             var userId = User.Identity.GetUserId();
+            var user = await UserManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                ViewBag.ErrorMessage = "Không tìm thấy người dùng.";
+                return View("Error");
+            }
+
+            // Debug giá trị để kiểm tra
+            System.Diagnostics.Debug.WriteLine($"Debug: PhoneNumber = {user.PhoneNumber}, diachi = {user.diachi}");
             var model = new IndexViewModel
             {
                 HasPassword = HasPassword(),
                 PhoneNumber = await UserManager.GetPhoneNumberAsync(userId),
                 TwoFactor = await UserManager.GetTwoFactorEnabledAsync(userId),
                 Logins = await UserManager.GetLoginsAsync(userId),
-                BrowserRemembered = await AuthenticationManager.TwoFactorBrowserRememberedAsync(userId)
+                BrowserRemembered = await AuthenticationManager.TwoFactorBrowserRememberedAsync(userId),
+                diachi = user.diachi
             };
             return View(model);
         }
@@ -383,7 +392,37 @@ namespace Shop.Controllers
             RemovePhoneSuccess,
             Error
         }
+        // POST: /Manage/UpdateProfile
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> UpdateProfile(IndexViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View("Index", model);
+            }
 
-#endregion
+            var user = await UserManager.FindByIdAsync(User.Identity.GetUserId());
+            if (user == null)
+            {
+                return HttpNotFound();
+            }
+
+            // Cập nhật PhoneNumber và diachi
+            user.PhoneNumber = model.PhoneNumber;
+            user.diachi = model.diachi;
+
+            // Lưu thay đổi vào cơ sở dữ liệu
+            var result = await UserManager.UpdateAsync(user);
+            if (result.Succeeded)
+            {
+                TempData["StatusMessage"] = "Cập nhật thông tin thành công!";
+                return RedirectToAction("Index");
+            }
+
+            AddErrors(result);
+            return View("Index", model);
+        }
+        #endregion
     }
 }

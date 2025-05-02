@@ -180,10 +180,17 @@ namespace Shop.Areas.Administrator.Controllers
             }
             else
             {
+                // Xóa tất cả bình luận trước
+                var binhLuans = db.BinhLuans.Where(b => b.matin == id).ToList();
+                db.BinhLuans.RemoveRange(binhLuans);
+
+                // Sau đó xóa tin tức
                 TinTuc tinTuc = db.TinTucs.Find(id);
                 db.TinTucs.Remove(tinTuc);
+
                 db.SaveChanges();
-                Notification.set_flash("Xóa bài viết thành công !", "success");
+
+                Notification.set_flash("Xóa bài viết!", "success");
                 return RedirectToAction("Index");
             }
         }
