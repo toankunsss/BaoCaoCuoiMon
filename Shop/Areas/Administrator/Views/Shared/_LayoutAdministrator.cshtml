@@ -257,7 +257,7 @@
                 <nav class="mt-2">
                     <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                         <!-- Add icons to the links using the .nav-icon class
-                        with font-awesome or any other icon font library -->
+    with font-awesome or any other icon font library -->
                         <!-- My Project ------------------------------------------------------ Start-->
                         <li class="nav-item laptopzoom">
                             <a href="@Url.Action("Index","MainPage")" class="nav-link">
@@ -287,6 +287,7 @@
                                 <p>Nhu cầu</p>
                             </a>
                         </li>
+
                         <li class="nav-item laptopzoom">
                             <a href="@Url.Action("Index","DonHang")" class="nav-link">
                                 @*<i class="fas fa-circle nav-icon"></i>*@
@@ -361,6 +362,12 @@
                             <a href="@Url.Action("Index","AspNetRoles")" class="nav-link">
                                 <img src="~/Areas/Administrator/Data/images/software-engineer.png" alt="Alternate Text" width="40" height="40" />
                                 <p>Quản lý Roles</p>
+                            </a>
+                        </li>
+                        <li class="nav-item laptopzoom">
+                            <a href="@Url.Action("AdminChat", "AdminMessenger")" class="nav-link">
+                                <img src="~/Areas/Administrator/Data/images/chat.png" alt="Chat Icon" width="40" height="40" />
+                                <p>Admin Chat</p>
                             </a>
                         </li>
                         <!-- My Project ------------------------------------------------------ End-->

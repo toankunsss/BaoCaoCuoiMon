@@ -4,36 +4,44 @@ using System.Threading.Tasks;
 using Shop.EF;
 using System.Linq;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic; // Thêm namespace này
 
 namespace Shop.Hubs
 {
     public class ChatHub : Hub
     {
         private readonly ApplicationDbContext _context = new ApplicationDbContext();
+        private static readonly ConcurrentDictionary<string, string> OnlineUsers = new ConcurrentDictionary<string, string>();
 
-        /// <summary>
-        /// Gửi tin nhắn từ người dùng đến người nhận và tất cả admin.
-        /// </summary>
+        // Phương thức tĩnh để lấy danh sách người dùng trực tuyến
+        public static List<string> GetOnlineUsers()
+        {
+            return OnlineUsers.Keys.ToList();
+        }
+
         public async Task SendMessage(string receiverId, string senderId, string message, string senderName)
         {
-            // Kiểm tra xem người gửi có đăng nhập không
-            if (string.IsNullOrEmpty(senderId))
+            System.Diagnostics.Debug.WriteLine($"SendMessage: Sender={senderId}, Receiver={receiverId}, Message={message}");
+            System.Diagnostics.Debug.WriteLine($"OnlineUsers: {string.Join(", ", OnlineUsers.Keys)}");
+
+            if (string.IsNullOrEmpty(senderId) || string.IsNullOrEmpty(receiverId))
             {
-                await Clients.Caller.showError("Bạn phải đăng nhập để gửi tin nhắn.");
+                System.Diagnostics.Debug.WriteLine("Lỗi: SenderId hoặc ReceiverId trống.");
+                await Clients.Caller.showError("Thông tin người dùng không hợp lệ.");
                 return;
             }
 
-            // Kiểm tra xem người nhận có tồn tại không
             var receiver = _context.AspNetUsers.FirstOrDefault(u => u.Id == receiverId);
             if (receiver == null)
             {
+                System.Diagnostics.Debug.WriteLine($"Lỗi: Không tìm thấy người nhận với ID={receiverId}.");
                 await Clients.Caller.showError("Không tìm thấy người nhận.");
                 return;
             }
 
             try
             {
-                // Tạo tin nhắn mới
                 var chatMessage = new Message
                 {
                     SenderId = senderId,
@@ -43,57 +51,72 @@ namespace Shop.Hubs
                     IsRead = false
                 };
 
-                // Lưu tin nhắn vào cơ sở dữ liệu
                 _context.Messages.Add(chatMessage);
                 await _context.SaveChangesAsync();
+                System.Diagnostics.Debug.WriteLine("Lưu tin nhắn thành công.");
 
-                // Gửi tin nhắn đến người gửi (khách hàng)
-                await Clients.User(senderId).receiveMessage(senderName, message, chatMessage.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"), false);
-
-                // Lấy danh sách ID của tất cả admin
-                var adminIds = _context.AspNetUserRoles
-                    .Where(r => r.RoleId == "1")
-                    .Select(r => r.UserId)
-                    .Distinct()
-                    .ToList();
-
-                // Gửi tin nhắn đến tất cả admin
-                foreach (var adminId in adminIds)
+                if (OnlineUsers.TryGetValue(senderId, out var senderConnectionId))
                 {
-                    await Clients.User(adminId).receiveMessage(senderName, message, chatMessage.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"), true);
+                    await Clients.Client(senderConnectionId).receiveMessage(senderName, message, chatMessage.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"), false, senderId);
+                    System.Diagnostics.Debug.WriteLine($"Gửi tin nhắn đến sender: {senderId}, ConnectionId: {senderConnectionId}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"Sender offline: {senderId}");
+                }
+
+                if (OnlineUsers.TryGetValue(receiverId, out var receiverConnectionId))
+                {
+                    await Clients.Client(receiverConnectionId).receiveMessage(senderName, message, chatMessage.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"), true, senderId);
+                    System.Diagnostics.Debug.WriteLine($"Gửi tin nhắn đến receiver: {receiverId}, ConnectionId: {receiverConnectionId}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"Receiver offline: {receiverId}");
                 }
             }
             catch (Exception ex)
             {
-                // Thông báo lỗi nếu lưu tin nhắn thất bại
+                System.Diagnostics.Debug.WriteLine($"Lỗi trong SendMessage: {ex.Message} - StackTrace: {ex.StackTrace}");
                 await Clients.Caller.showError($"Lỗi khi gửi tin nhắn: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Xử lý khi người dùng kết nối đến hub.
-        /// </summary>
         public override Task OnConnected()
         {
-            var userId = Context.User.Identity.GetUserId();
+            var userId = Context.User?.Identity?.GetUserId();
             if (!string.IsNullOrEmpty(userId))
             {
-                Clients.User(userId).notifyConnected("Bạn đã kết nối với chat.");
+                OnlineUsers.AddOrUpdate(userId, Context.ConnectionId, (key, oldValue) => Context.ConnectionId);
+                System.Diagnostics.Debug.WriteLine($"Người dùng kết nối: {userId}, ConnectionId: {Context.ConnectionId}, OnlineUsers Count: {OnlineUsers.Count}");
+                Clients.Client(Context.ConnectionId).notifyConnected("Bạn đã kết nối với chat.");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Người dùng kết nối nhưng không có UserId.");
             }
             return base.OnConnected();
         }
 
-        /// <summary>
-        /// Giải phóng tài nguyên khi hub bị hủy.
-        /// </summary>
+        public override Task OnDisconnected(bool stopCalled)
+        {
+            var userId = Context.User?.Identity?.GetUserId();
+            if (!string.IsNullOrEmpty(userId))
+            {
+                OnlineUsers.TryRemove(userId, out _);
+                System.Diagnostics.Debug.WriteLine($"Người dùng ngắt kết nối: {userId}, OnlineUsers Count: {OnlineUsers.Count}");
+            }
+            return base.OnDisconnected(stopCalled);
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
+                System.Diagnostics.Debug.WriteLine("Giải phóng ApplicationDbContext.");
                 _context.Dispose();
             }
             base.Dispose(disposing);
         }
     }
-
 }

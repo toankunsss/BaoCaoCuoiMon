@@ -37,7 +37,7 @@
             </div>
             <div class="chat-input">
                 <input type="text" id="message-input" placeholder="Nhập tin nhắn của bạn tại đây..." />
-                <button id="send-message" class="send-button">➤</button>
+                <button id="send-message" class="send-button" disabled>➤</button>
             </div>
         </div>
     </div>
@@ -211,6 +211,11 @@
         .chat-widget.hidden {
             display: none;
         }
+
+        .send-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -220,40 +225,56 @@
     $(document).ready(function () {
         console.log("Tải script widget chat thành công.");
 
-        // Tham chiếu đến hub SignalR
         var chatHub = $.connection.chatHub;
+        var isSignalRConnected = false;
 
-        // Nhận tin nhắn từ server
-        chatHub.client.receiveMessage = function (sender, message, timestamp, isIncoming) {
-            console.log("Nhận tin nhắn:", { sender, message, timestamp, isIncoming });
+        chatHub.client.receiveMessage = function (senderName, message, timestamp, isIncoming, senderId) {
+            console.log("Nhận tin nhắn:", { senderName, message, timestamp, isIncoming, senderId });
             var messageClass = isIncoming ? "received" : "sent";
-            var msgHtml = `<div class="message ${messageClass}">
-                <div class="message-content">${message}</div>
-            </div>`;
-            $("#chat-messages").append(msgHtml);
+            var safeMessage = $('<div/>').text(message).html();
+            $("#chat-messages").append(
+                `<div class="message ${messageClass}">
+                    <div class="message-content">${safeMessage}</div>
+                </div>`
+            );
             $("#chat-messages").scrollTop($("#chat-messages")[0].scrollHeight);
+            // Phát âm thanh thông báo cho tin nhắn đến
+            if (isIncoming) {
+                var audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+                audio.play();
+            }
         };
 
-        // Hiển thị lỗi từ hub
         chatHub.client.showError = function (error) {
             console.error("Lỗi hub:", error);
             alert(error);
         };
 
-        // Thông báo kết nối hub thành công
         chatHub.client.notifyConnected = function (message) {
             console.log("Kết nối hub:", message);
         };
 
-        // Kết nối đến SignalR hub
-        $.connection.hub.start().done(function () {
-            console.log("Kết nối SignalR thành công.");
-        }).fail(function (err) {
-            console.error("Kết nối SignalR thất bại:", err);
-            alert("Không thể kết nối đến server chat. Vui lòng thử lại sau.");
+        function startSignalR() {
+            $.connection.hub.start().done(function () {
+                console.log("Kết nối SignalR thành công, Hub ID:", $.connection.hub.id);
+                isSignalRConnected = true;
+                $("#send-message").prop("disabled", false);
+            }).fail(function (err) {
+                console.error("Kết nối SignalR thất bại:", err);
+                alert("Không thể kết nối đến server chat. Đang thử lại...");
+                setTimeout(startSignalR, 5000);
+            });
+        }
+
+        $.connection.hub.disconnected(function () {
+            console.warn("SignalR ngắt kết nối. Thử kết nối lại...");
+            isSignalRConnected = false;
+            $("#send-message").prop("disabled", true);
+            setTimeout(startSignalR, 5000);
         });
 
-        // Lấy danh sách ID admin
+        startSignalR();
+
         var adminIds = [];
         $.get("/Messenger/GetAdminIds", function (data) {
             if (data && data.length > 0) {
@@ -262,19 +283,19 @@
             } else {
                 console.warn("Không tìm thấy admin.");
                 alert("Không tìm thấy admin để gửi tin nhắn.");
+                $("#send-message").prop("disabled", true);
             }
         }).fail(function (jqXHR, textStatus, errorThrown) {
             console.error("Lấy ID admin thất bại:", { status: jqXHR.status, textStatus, errorThrown });
             alert("Không thể lấy thông tin admin. Vui lòng thử lại sau.");
+            $("#send-message").prop("disabled", true);
         });
 
-        // Mở widget chat khi nhấn biểu tượng
         $("#chat-icon").click(function () {
             console.log("Nhấn biểu tượng chat.");
             $("#chat-widget").show();
             $("#chat-icon").hide();
 
-            // Tải lịch sử tin nhắn
             var userId = "@User.Identity.GetUserId()";
             console.log("Tải tin nhắn cho user:", userId);
             if (userId) {
@@ -282,96 +303,67 @@
                     console.log("Phản hồi lịch sử tin nhắn:", data);
                     $("#chat-messages").empty();
                     if (data && Array.isArray(data) && data.length > 0) {
-                        // Hiển thị lịch sử tin nhắn
                         data.forEach(function (msg) {
                             var messageClass = msg.senderId === userId ? "sent" : "received";
-                            var msgHtml = `<div class="message ${messageClass}">
-                                <div class="message-content">${msg.content}</div>
-                            </div>`;
-                            $("#chat-messages").append(msgHtml);
+                            var safeMessage = $('<div/>').text(msg.content).html();
+                            $("#chat-messages").append(
+                                `<div class="message ${messageClass}">
+                                    <div class="message-content">${safeMessage}</div>
+                                </div>`
+                            );
                         });
                     } else if (data && data.error) {
-                        // Hiển thị lỗi từ API
                         console.warn("Lỗi từ API:", data.error);
-                        $("#chat-messages").append(`
-                            <div class="message received">
+                        $("#chat-messages").append(
+                            `<div class="message received">
                                 <div class="message-content">${data.error}</div>
-                            </div>
-                        `);
+                            </div>`
+                        );
                     } else {
-                        // Hiển thị tin nhắn chào mừng nếu không có lịch sử
                         console.log("Không có lịch sử tin nhắn, hiển thị tin nhắn chào mừng.");
-                        $("#chat-messages").append(`
-                            <div class="message received">
+                        $("#chat-messages").append(
+                            `<div class="message received">
                                 <div class="message-content">
                                     Chào mừng đến với cửa hàng của chúng tôi! Dù bạn có câu hỏi cụ thể hay cần hỗ trợ, chúng tôi luôn sẵn sàng. Bạn muốn biết gì? 😊
                                 </div>
-                            </div>
-                        `);
+                            </div>`
+                        );
                     }
                     $("#chat-messages").scrollTop($("#chat-messages")[0].scrollHeight);
                 }).fail(function (jqXHR, textStatus, errorThrown) {
                     console.error("Tải lịch sử tin nhắn thất bại:", { status: jqXHR.status, textStatus, errorThrown });
                     $("#chat-messages").empty();
-                    $("#chat-messages").append(`
-                        <div class="message received">
+                    $("#chat-messages").append(
+                        `<div class="message received">
                             <div class="message-content">
                                 Không thể tải lịch sử tin nhắn. Vui lòng thử lại sau.
                             </div>
-                        </div>
-                    `);
+                        </div>`
+                    );
                     $("#chat-messages").scrollTop($("#chat-messages")[0].scrollHeight);
                     alert("Không thể truy xuất tin nhắn. Vui lòng thử lại sau.");
                 });
             } else {
                 console.warn("Không tìm thấy ID người dùng.");
                 $("#chat-messages").empty();
-                $("#chat-messages").append(`
-                    <div class="message received">
+                $("#chat-messages").append(
+                    `<div class="message received">
                         <div class="message-content">
                             Không thể xác thực người dùng. Vui lòng đăng nhập lại.
                         </div>
-                    </div>
-                `);
+                    </div>`
+                );
                 $("#chat-messages").scrollTop($("#chat-messages")[0].scrollHeight);
                 alert("Không thể xác thực người dùng. Vui lòng đăng nhập lại.");
             }
         });
 
-        // Gửi tin nhắn khi nhấn nút gửi
-        $("#send-message").click(function () {
-            sendMessage();
-        });
-
-        // Gửi tin nhắn khi nhấn Enter
-        $("#message-input").keypress(function (e) {
-            if (e.which === 13) {
-                sendMessage();
-            }
-        });
-
-        // Gửi tin nhắn nhanh
-        $(".quick-reply").click(function () {
-            var message = $(this).data("message");
-            console.log("Nhấn tin nhắn nhanh:", message);
-            $("#message-input").val(message);
-            sendMessage();
-        });
-
-        // Thu nhỏ/mở rộng widget chat
-        $("#chat-minimize").click(function () {
-            console.log("Nhấn thu nhỏ.");
-            $("#chat-widget").toggleClass("minimized");
-        });
-
-        // Đóng widget chat
-        $("#chat-close").click(function () {
-            console.log("Nhấn đóng.");
-            $("#chat-widget").hide();
-            $("#chat-icon").show();
-        });
-
         function sendMessage() {
+            if (!isSignalRConnected) {
+                alert("Kết nối chat chưa sẵn sàng. Vui lòng chờ một chút.");
+                return;
+            }
+
             var message = $("#message-input").val().trim();
             if (!message) {
                 alert("Vui lòng nhập tin nhắn.");
@@ -385,28 +377,46 @@
 
             var userId = "@User.Identity.GetUserId()";
             var senderName = "@User.Identity.GetUserName()";
+            var adminId = adminIds[0];
 
-            // Hiển thị tin nhắn gửi ngay lập tức
-            console.log("Thêm tin nhắn gửi:", message);
-            var msgHtml = `<div class="message sent">
-                <div class="message-content">${message}</div>
-            </div>`;
-            $("#chat-messages").append(msgHtml);
-            $("#chat-messages").scrollTop($("#chat-messages")[0].scrollHeight);
-
-            // Gửi tin nhắn đến tất cả admin
-            adminIds.forEach(function (adminId) {
-                console.log("Gửi tin nhắn đến admin:", { adminId, message, userId, senderName });
-                chatHub.server.sendMessage(adminId, userId, message, senderName).done(function () {
-                    console.log("Gửi tin nhắn thành công đến admin:", adminId);
-                }).fail(function (err) {
-                    console.error("Gửi tin nhắn thất bại:", err);
-                    alert("Không thể gửi tin nhắn. Vui lòng thử lại sau.");
-                });
+            console.log("Gửi tin nhắn đến admin:", { adminId, message, userId, senderName });
+            chatHub.server.sendMessage(adminId, userId, message, senderName).done(function () {
+                console.log("Gửi tin nhắn thành công.");
+                $("#message-input").val("");
+            }).fail(function (err) {
+                console.error("Gửi tin nhắn thất bại:", err);
+                alert("Không thể gửi tin nhắn. Vui lòng thử lại sau.");
             });
-
-            $("#message-input").val("");
         }
+
+        $("#send-message").click(function () {
+            sendMessage();
+        });
+
+        $("#message-input").keypress(function (e) {
+            if (e.which === 13) {
+                sendMessage();
+            }
+        });
+
+        $(".quick-reply").click(function () {
+            var message = $(this).data("message");
+            console.log("Nhấn tin nhắn nhanh:", message);
+            $("#message-input").val(message);
+            sendMessage();
+        });
+
+        $("#chat-minimize").click(function () {
+            console.log("Nhấn thu nhỏ.");
+            $("#chat-widget").toggleClass("minimized");
+        });
+
+        $("#chat-close").click(function () {
+            console.log("Nhấn đóng.");
+            $("#chat-widget").hide();
+            $("#chat-icon").show();
+        });
     });
     </script>
+
 }

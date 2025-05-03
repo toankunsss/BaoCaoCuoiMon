@@ -349,6 +349,7 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="App_Start\Startup.Auth.cs" />
     <Compile Include="Areas\Administrator\AdministratorAreaRegistration.cs" />
+    <Compile Include="Areas\Administrator\Controllers\AdminMessengerController.cs" />
     <Compile Include="Areas\Administrator\Controllers\AspNetRolesController.cs" />
     <Compile Include="Areas\Administrator\Controllers\AspNetUserClaimsController.cs" />
     <Compile Include="Areas\Administrator\Controllers\AspNetUserLoginsController.cs" />
@@ -1066,6 +1067,7 @@
     <Content Include="Areas\Administrator\Data\images\adwords.png" />
     <Content Include="Areas\Administrator\Data\images\boy.png" />
     <Content Include="Areas\Administrator\Data\images\calendar.png" />
+    <Content Include="Areas\Administrator\Data\images\chat.png" />
     <Content Include="Areas\Administrator\Data\images\chitietdonhang.png" />
     <Content Include="Areas\Administrator\Data\images\communicate.png" />
     <Content Include="Areas\Administrator\Data\images\dashboard.png" />
@@ -4993,6 +4995,7 @@
     <Content Include="Content\bootstrap-grid.rtl.css.map" />
     <Content Include="Content\bootstrap-grid.min.css.map" />
     <Content Include="Content\bootstrap-grid.css.map" />
+    <Content Include="Areas\Administrator\Views\AdminMessenger\AdminChat.cshtml" />
     <None Include="Models\MyData.dbml.layout">
       <DependentUpon>MyData.dbml</DependentUpon>
     </None>
