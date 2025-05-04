@@ -10,6 +10,7 @@ using Shop.Models;
 using Shop.Areas.Administrator.Data.message;
 using System.Runtime.Caching;
 using Shop.Mail;
+using System.Text.RegularExpressions;
 
 namespace Shop.Controllers
 {
@@ -142,20 +143,28 @@ namespace Shop.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Kiểm tra mật khẩu theo yêu cầu: ít nhất 8 ký tự, có chữ hoa, chữ thường, ký tự đặc biệt
+                string passwordPattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$";
+                if (!Regex.IsMatch(model.Password, passwordPattern))
+                {
+                    ModelState.AddModelError("Password", "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và một ký tự đặc biệt (!@#$%^&*).");
+                    return View(model);
+                }
+
                 var user = new ApplicationUser { UserName = model.Email, Email = model.Email, hoten = model.hoten, diachi = model.diachi };
 
                 // Tạo mã xác minh ngẫu nhiên
                 var verificationCode = GenerateVerificationCode();
                 var cacheKey = $"VerificationCode_{model.Email}";
 
-                // Lưu thông tin người dùng và mã xác minh vào bộ nhớ cache (hết hạn sau 10 phút)
+                // Lưu thông tin người dùng và mã xác minh vào bộ nhớ cache (hết hạn sau 1 phút)
                 var cacheItem = new
                 {
                     User = user,
                     Password = model.Password,
                     VerificationCode = verificationCode
                 };
-                _cache.Set(cacheKey, cacheItem, new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(10) });
+                _cache.Set(cacheKey, cacheItem, new CacheItemPolicy { AbsoluteExpiration = DateTimeOffset.Now.AddMinutes(1) });
 
                 // Gửi mã xác minh đến người dùng (qua email)
                 await SendVerificationCode(model.Email, verificationCode);
@@ -166,7 +175,6 @@ namespace Shop.Controllers
 
             return View(model);
         }
-
         // GET: /Account/VerifyCode
         [AllowAnonymous]
         public ActionResult VerifyCode(string email)
