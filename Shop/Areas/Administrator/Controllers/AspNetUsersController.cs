@@ -126,7 +126,7 @@ namespace Shop.Areas.Administrator.Controllers
         [HttpPost]
         [ValidateInput(false)]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit([Bind(Include = "Id,Email,EmailConfirmed,PasswordHash,SecurityStamp,PhoneNumber,PhoneNumberConfirmed,TwoFactorEnabled,LockoutEndDateUtc,LockoutEnabled,AccessFailedCount,UserName,ngaysinh,profile,avatar,hoten,diachi")] AspNetUser aspNetUser)
+        public ActionResult Edit([Bind(Include = "Id,Email,EmailConfirmed,PhoneNumber,PhoneNumberConfirmed,TwoFactorEnabled,LockoutEndDateUtc,LockoutEnabled,AccessFailedCount,UserName,ngaysinh,profile,avatar,hoten,diachi")] AspNetUser aspNetUser)
         {
             if (Session["taikhoanadmin"] == null)
             {
@@ -141,7 +141,31 @@ namespace Shop.Areas.Administrator.Controllers
                         Notification.set_flash("Vui lòng nhập Email!", "danger");
                         return RedirectToAction("Index");
                     }
-                    db.Entry(aspNetUser).State = EntityState.Modified;
+
+                    // Lấy bản ghi hiện tại từ cơ sở dữ liệu
+                    var existingUser = db.AspNetUsers.Find(aspNetUser.Id);
+                    if (existingUser == null)
+                    {
+                        Notification.set_flash("Không tìm thấy tài khoản !", "warning");
+                        return HttpNotFound();
+                    }
+
+                    // Cập nhật chỉ các trường cần thiết
+                    existingUser.Email = aspNetUser.Email;
+                    existingUser.EmailConfirmed = aspNetUser.EmailConfirmed;
+                    existingUser.PhoneNumber = aspNetUser.PhoneNumber;
+                    existingUser.PhoneNumberConfirmed = aspNetUser.PhoneNumberConfirmed;
+                    existingUser.TwoFactorEnabled = aspNetUser.TwoFactorEnabled;
+                    existingUser.LockoutEndDateUtc = aspNetUser.LockoutEndDateUtc;
+                    existingUser.LockoutEnabled = aspNetUser.LockoutEnabled;
+                    existingUser.AccessFailedCount = aspNetUser.AccessFailedCount;
+                    existingUser.UserName = aspNetUser.UserName;
+                    existingUser.ngaysinh = aspNetUser.ngaysinh;
+                    existingUser.profile = aspNetUser.profile;
+                    existingUser.avatar = aspNetUser.avatar;
+                    existingUser.hoten = aspNetUser.hoten;
+                    existingUser.diachi = aspNetUser.diachi;
+
                     db.SaveChanges();
                     Notification.set_flash("Cập nhật tài khoản thành công !", "success");
                     return RedirectToAction("Index");
