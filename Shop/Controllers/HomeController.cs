@@ -122,24 +122,33 @@ namespace Shop.Controllers
             return PartialView();
         }
 
+
+        // danh gia san pham 
+
+
         [HttpPost]
         [CaptchaValidation("CaptchaCode", "commentCaptcha", "Mã Captcha không đúng!")]
         public ActionResult NhanXet(FormCollection collection, DanhGia dg)
         {
-            var ten = collection["ten"];
+            // Kiểm tra đăng nhập
+            if (Session["TaiKhoan"] == null)
+            {
+                Notification.set_flash("Vui lòng đăng nhập để gửi đánh giá!", "warning");
+                return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("Details", "Home", new { id = CommonFields.id }) });
+            }
+
             var noidung = collection["noidung"];
             var vote = collection["vote"];
             var malaptop = CommonFields.id;
             var captchaCode = collection["CaptchaCode"];
-            /*var trangthai = collection["trangthai"];*/
-            bool validationComment = ten == null || noidung == null || vote == null || ten.Equals("") || noidung.Equals("") || vote.Equals("");
+            bool validationComment = noidung == null || vote == null || noidung.Equals("") || vote.Equals("");
+
             if (!ModelState.IsValid)
             {
-                // TODO: Captcha validation failed, show error message
                 if (validationComment)
                 {
-                    ViewBag.commentContentError = "Bạn chưa điền đủ thông tin hoặc chưa vote! 🆘🆘🆘";
-                    ModelState.AddModelError("CaptchaCode", "Bạn chưa điền đủ thông tin hoặc chưa vote! 🆘🆘🆘!");
+                    ViewBag.commentContentError = "Bạn chưa điền nội dung hoặc chưa chọn điểm đánh giá! 🆘🆘🆘";
+                    ModelState.AddModelError("CaptchaCode", "Bạn chưa điền nội dung hoặc chưa chọn điểm đánh giá! 🆘🆘🆘!");
                     return PartialView();
                 }
                 if (captchaCode == null || captchaCode.Equals(""))
@@ -151,19 +160,24 @@ namespace Shop.Controllers
             }
             else
             {
-                dg.ten = ten;
+                // Lấy thông tin người dùng từ Session
+                AspNetUser user = (AspNetUser)Session["TaiKhoan"];
+
+                dg.ten = user.UserName; // Sử dụng UserName làm tên đánh giá
                 dg.noidung = noidung;
-                /*dg.vote = Convert.ToInt32(vote);*/
                 dg.vote = Convert.ToInt32(vote);
                 dg.ngaydanhgia = DateTime.Now;
                 dg.malaptop = malaptop;
                 dg.trangthai = true;
+
                 data.DanhGias.InsertOnSubmit(dg);
                 data.SubmitChanges();
                 MvcCaptcha.ResetCaptcha("commentCaptcha");
+
+                Notification.set_flash("Gửi đánh giá thành công!", "success");
+                return RedirectToAction("Details", new { id = malaptop });
             }
 
-            /*return RedirectToAction("Details");*/
             return PartialView();
         }
 
