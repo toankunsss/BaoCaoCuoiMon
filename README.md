@@ -2,6 +2,14 @@
 
 Một ứng dụng thương mại điện tử bán giày hoàn chỉnh được xây dựng với MERN Stack (MongoDB, Express, React, Node.js).
 
+## 👥 Thành viên nhóm
+
+| STT | Họ và tên       | MSSV        |
+| --- | --------------- | ----------- |
+| 1   | Nguyễn Văn Toàn | 22810310059 |
+| 2   | Bùi Đức Anh     | 22810310038 |
+| 3   | Nguyễn Mạnh Chí | 22810310044 |
+
 ## 📋 Mục lục
 
 - [Tính năng](#-tính-năng)
