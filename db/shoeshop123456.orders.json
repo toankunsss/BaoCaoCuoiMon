@@ -1,0 +1,88 @@
+[{
+  "_id": {
+    "$oid": "690c77bc56134a3475b34ad3"
+  },
+  "user": {
+    "$oid": "690c730756134a3475b34a64"
+  },
+  "orderItems": [
+    {
+      "name": "jordan 1",
+      "qty": 1,
+      "image": {
+        "public_id": "ShoeShop/ywofbwwgl6ldepl5ljw9",
+        "url": "https://res.cloudinary.com/yhnujmiol/image/upload/v1762424718/ShoeShop/ywofbwwgl6ldepl5ljw9.jpg"
+      },
+      "price": 100,
+      "product": {
+        "$oid": "690c779156134a3475b34ac8"
+      },
+      "_id": {
+        "$oid": "690c77bc56134a3475b34ad4"
+      }
+    }
+  ],
+  "shippingAddress": {
+    "address": "cau giay",
+    "city": "ha noi",
+    "postalCode": " ",
+    "country": "viet nam"
+  },
+  "paymentMethod": "Paypal",
+  "taxPrice": 10,
+  "shippingPrice": 15,
+  "totalPrice": 125,
+  "isPaid": false,
+  "isDelivered": false,
+  "createdAt": {
+    "$date": "2025-11-06T10:26:04.413Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T10:26:04.413Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "690cae8faa99d194de742b8a"
+  },
+  "user": {
+    "$oid": "690c730756134a3475b34a64"
+  },
+  "orderItems": [
+    {
+      "name": "jordan 1",
+      "qty": 1,
+      "image": {
+        "public_id": "ShoeShop/ywofbwwgl6ldepl5ljw9",
+        "url": "https://res.cloudinary.com/yhnujmiol/image/upload/v1762424718/ShoeShop/ywofbwwgl6ldepl5ljw9.jpg"
+      },
+      "price": 100,
+      "product": {
+        "$oid": "690c779156134a3475b34ac8"
+      },
+      "_id": {
+        "$oid": "690cae8faa99d194de742b8b"
+      }
+    }
+  ],
+  "shippingAddress": {
+    "address": "cau giay",
+    "city": "ha noi",
+    "postalCode": " ",
+    "country": "viet nam"
+  },
+  "paymentMethod": "Paypal",
+  "taxPrice": 10,
+  "shippingPrice": 15,
+  "totalPrice": 125,
+  "isPaid": false,
+  "isDelivered": false,
+  "createdAt": {
+    "$date": "2025-11-06T14:19:59.472Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T14:19:59.472Z"
+  },
+  "__v": 0
+}]

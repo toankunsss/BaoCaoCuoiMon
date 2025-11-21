@@ -1,0 +1,70 @@
+[{
+  "_id": {
+    "$oid": "690c726c56134a3475b34a2f"
+  },
+  "name": "jordan",
+  "description": " ",
+  "createdAt": {
+    "$date": "2025-11-06T10:03:24.097Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T10:03:24.097Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "690c727d56134a3475b34a35"
+  },
+  "name": "adidas",
+  "description": " ",
+  "createdAt": {
+    "$date": "2025-11-06T10:03:41.940Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T10:03:41.940Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "690c72a256134a3475b34a3b"
+  },
+  "name": "sneakers",
+  "description": " \n",
+  "createdAt": {
+    "$date": "2025-11-06T10:04:18.982Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T10:04:18.982Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "690c762f56134a3475b34aa2"
+  },
+  "name": "converse",
+  "description": " ",
+  "createdAt": {
+    "$date": "2025-11-06T10:19:27.857Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-06T10:19:27.857Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "690d9ab5989904bcd4643529"
+  },
+  "name": "alphabouse",
+  "description": " \n",
+  "createdAt": {
+    "$date": "2025-11-07T07:07:33.747Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-07T07:07:33.747Z"
+  },
+  "__v": 0
+}]

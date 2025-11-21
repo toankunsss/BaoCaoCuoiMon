@@ -1,53 +1,143 @@
-# Shop
+# 👟 Shoe Shop - E-Commerce Platform
 
-Shop Laptop, Phone, Watch, PC, Tablet ASP.NET MVC5
+Một ứng dụng thương mại điện tử bán giày hoàn chỉnh được xây dựng với MERN Stack (MongoDB, Express, React, Node.js).
 
-# Công nghệ sử dụng
+## 📋 Mục lục
 
-Bootstrap/Jquery
-ASP.NETMVC5/EF6/SQLServer
+- [Tính năng](#-tính-năng)
+- [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
+- [Cài đặt](#-cài-đặt)
+- [Cấu hình](#-cấu-hình)
+- [Tài khoản demo](#-tài-khoản-demo)
+- [Tài liệu tham khảo](#-tài-liệu-tham-khảo)
 
-# Ảnh sản phẩm
+## ✨ Tính năng
 
-![image](https://user-images.githubusercontent.com/66912536/225206994-d9290521-da00-4321-bc62-cb21b8e51d19.png)
+### Người dùng
 
-# Database
+- 🔐 Đăng ký và đăng nhập
+- 🛍️ Xem danh sách sản phẩm
+- 🔍 Tìm kiếm và lọc sản phẩm
+- 🛒 Giỏ hàng và thanh toán
+- 📦 Theo dõi đơn hàng
+- 👤 Quản lý thông tin cá nhân
 
-![image](https://user-images.githubusercontent.com/66912536/225207217-1016fc60-99e6-4250-90af-a297fb956d02.png)
+### Quản trị viên
 
-# Hỗ trợ thành toán Online
+- 📊 Dashboard quản lý
+- 📦 Quản lý sản phẩm (thêm, sửa, xóa)
+- 🏷️ Quản lý danh mục
+- 👥 Quản lý người dùng
+- 📋 Quản lý đơn hàng
 
-![image](https://user-images.githubusercontent.com/66912536/225207332-81173613-9784-4595-82dd-bfdbbd4b7f31.png)
-![image](https://user-images.githubusercontent.com/66912536/225207382-b014e8fd-4a73-40c2-9b3d-3e595f654b53.png)
-![image](https://user-images.githubusercontent.com/66912536/225207424-dc47b06b-5c51-44ad-b659-9096b2f5b335.png)
+## 🛠️ Công nghệ sử dụng
 
-Hướng dẫn
+### Frontend
 
-Bước 1: Sau khi clone dự án về thì mở dự án qua file Shop.sln bằng visual studio code
-![image](./imagehd/1.png)
+- **React.js** - Thư viện UI
+- **Redux** - State management
+- **React Router** - Routing
+- **Axios** - HTTP client
 
-Bước 2: Sau khi vào dự án chuột phải vào dự án và ấn reBuild như trong ảnh
-![image](./imagehd/2.png)
+### Backend
 
-Bước 3: Vào tìm kiếm và tìm Package Manager Console
-![image](./imagehd/3.png)
+- **Node.js** - Runtime environment
+- **Express.js** - Web framework
+- **MongoDB** - Database
+- **Mongoose** - ODM
+- **JWT** - Authentication
+- **Bcrypt** - Password hashing
 
-Bước 4
-• Chạy lệnh: Install-Package Microsoft.CodeDom.Providers.DotNetCompilerPlatform Sau đó chạy tiếp: Install-Package Microsoft.Net.Compilers rồi thực hiện lại bước 2
-![image](./imagehd/4.png)
+## 🚀 Cài đặt
 
-Bước 5: Chỉ thực hiện sau khi backup database truy cập vào file Web.config Tìm dòng như ảnh rồi sửa tên cổng kết nối
-![image](./imagehd/5.png)
+### Yêu cầu hệ thống
 
-Restore Database
-Bước 1 chọn restore files ….
-![image](./imagehd/6.png)
+- Node.js >= 14.x
+- npm hoặc yarn
+- MongoDB
 
-Bước 2: tìm đến nơi vừa tải file về rồi add file đấy
-![image](./imagehd/7.png)
-![image](./imagehd/8.png)
+### Bước 1: Clone repository
 
-Bước 4 click chonj mục đầu để restore như trong ảnh -> Ấn ok
+```bash
+git clone https://github.com/toankunsss/BaoCaoCuoiMon.git
+cd BaoCaoCuoiMon
+```
 
-![image](./imagehd/9.png)
-![image](./imagehd/10.png)
+### Bước 2: Cài đặt Backend
+
+```bash
+cd Backend
+npm install
+npm start
+```
+
+Backend sẽ chạy tại `http://localhost:3000`
+
+### Bước 3: Cài đặt Frontend
+
+Mở terminal mới:
+
+```bash
+cd Frontend
+npm install
+npm start
+```
+
+Frontend sẽ chạy tại `http://localhost:3001`
+
+### Bước 4: Cài đặt Server
+
+Mở terminal mới:
+
+```bash
+cd Server
+npm install
+npm start
+```
+
+Server API sẽ chạy tại `http://localhost:5000`
+
+## ⚙️ Cấu hình
+
+### Database
+
+1. Tạo database MongoDB với tên `shoeshop123456`
+2. Import dữ liệu mẫu từ thư mục `db/`:
+   - `shoeshop123456.categories.json`
+   - `shoeshop123456.products.json`
+   - `shoeshop123456.users.json`
+   - `shoeshop123456.orders.json`
+
+### Environment Variables
+
+Tạo file `.env` trong thư mục `Server/` với nội dung:
+
+```env
+MONGO_URL=mongodb://localhost:27017/shoeshop123456
+JWT_SECRET=your_jwt_secret_key
+PORT=5000
+```
+
+## 🔑 Tài khoản demo
+
+### Admin
+
+- **Email:** `admin@gmail.com`
+- **Password:** `123456`
+
+### User
+
+- **Email:** `user@gmail.com`
+- **Password:** `123456`
+
+## 📚 Tài liệu tham khảo
+
+- [Video hướng dẫn](https://www.youtube.com/watch?v=3_96f9Tk3m8)
+
+## 📝 License
+
+© 2025 Shoe Shop. All rights reserved.
+
+---
+
+**Developed with ❤️ by toankunsss**
